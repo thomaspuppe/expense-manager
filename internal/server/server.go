@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"io/fs"
+	"mime"
 	"net/http"
 
 	"expensemanager/internal/api"
@@ -19,6 +20,11 @@ var templates = template.Must(template.ParseFS(web.FS, "*.html"))
 // categoriesJSON is the fixed category set marshaled once for injection into the
 // review page (its JS needs a key->label/icon map).
 var categoriesJSON = mustCategoriesJSON()
+
+func init() {
+	// Serve the web app manifest with its correct MIME type.
+	mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 func mustCategoriesJSON() template.JS {
 	b, err := json.Marshal(store.Categories)
@@ -46,6 +52,17 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 	// Static assets (public, so the login page can style itself too).
 	assets, _ := fs.Sub(web.FS, "assets")
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
+
+	// Service worker must be served from root scope to control the whole origin.
+	mux.HandleFunc("GET /sw.js", func(w http.ResponseWriter, r *http.Request) {
+		b, err := web.FS.ReadFile("assets/sw.js")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Write(b)
+	})
 
 	// JSON API — valid session cookie or bearer token.
 	apiMux := http.NewServeMux()
