@@ -1,0 +1,23 @@
+[Unit]
+Description=Expense Manager
+After=network.target
+
+[Service]
+Type=simple
+User=expense
+Group=expense
+WorkingDirectory=/opt/expensemanager
+EnvironmentFile=/opt/expensemanager/expensemanager.env
+ExecStart=/opt/expensemanager/expensemanager
+Restart=on-failure
+RestartSec=2
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/expensemanager
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

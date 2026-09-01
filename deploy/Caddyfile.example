@@ -1,0 +1,11 @@
+# Caddy terminates HTTPS (automatic Let's Encrypt) and reverse-proxies to the
+# local Go process. Replace the domain with yours.
+expenses.example.com {
+	reverse_proxy 127.0.0.1:8080
+
+	# Optional: throttle login guesses. Requires the caddy-ratelimit plugin.
+	# @login path /login
+	# rate_limit @login {
+	#     zone login { key {remote_host} events 10 window 1m }
+	# }
+}

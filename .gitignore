@@ -1,6 +1,7 @@
-# Compiled binary
+# Compiled binaries
 /expensemanager
 /expense-manager
+/dist/
 
 # SQLite database and WAL sidecars
 *.db
