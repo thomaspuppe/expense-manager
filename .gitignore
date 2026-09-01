@@ -1,0 +1,11 @@
+# Compiled binary
+/expensemanager
+/expense-manager
+
+# SQLite database and WAL sidecars
+*.db
+*.db-wal
+*.db-shm
+
+# Local env
+.env
