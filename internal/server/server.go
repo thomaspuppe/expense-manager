@@ -2,6 +2,7 @@
 package server
 
 import (
+	"encoding/json"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -14,6 +15,18 @@ import (
 )
 
 var templates = template.Must(template.ParseFS(web.FS, "*.html"))
+
+// categoriesJSON is the fixed category set marshaled once for injection into the
+// review page (its JS needs a key->label/icon map).
+var categoriesJSON = mustCategoriesJSON()
+
+func mustCategoriesJSON() template.JS {
+	b, err := json.Marshal(store.Categories)
+	if err != nil {
+		panic(err)
+	}
+	return template.JS(b)
+}
 
 // New builds the HTTP handler for the application: public login/health/asset
 // routes, the session-or-bearer-gated JSON API, and the session-gated browser app.
@@ -40,9 +53,21 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 	mux.Handle("/api/", a.GateAPI(apiMux))
 
 	// Browser app — session-gated.
+	mux.Handle("GET /review", a.GateBrowser(http.HandlerFunc(reviewPage)))
 	mux.Handle("/", a.GateBrowser(http.HandlerFunc(entryPage)))
 
 	return mux
+}
+
+// reviewPage renders the month overview, breakdown, history, and edit surfaces.
+func reviewPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.ExecuteTemplate(w, "review.html", map[string]any{
+		"Categories":     store.Categories,
+		"CategoriesJSON": categoriesJSON,
+	}); err != nil {
+		http.Error(w, "template error", http.StatusInternalServerError)
+	}
 }
 
 // entryPage renders the numpad entry screen with the categories embedded in the

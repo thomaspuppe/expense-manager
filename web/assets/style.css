@@ -163,6 +163,100 @@ body {
 
 button:disabled { opacity: 0.5; cursor: default; }
 
+/* Review page */
+.monthnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.navbtn {
+  min-width: 48px;
+  min-height: 48px;
+  font-size: 1.5rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+.month-label { font-size: 1.1rem; font-weight: 600; }
+.total {
+  font-size: 2.6rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 20px 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.breakdown { display: grid; gap: 6px; }
+.brow, .hrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: none;
+  width: 100%;
+  color: var(--text);
+  text-align: left;
+  font-size: 1rem;
+}
+.hrow { cursor: pointer; margin-bottom: 6px; }
+.hrow:active { background: var(--surface-2); }
+.amt { font-variant-numeric: tabular-nums; font-weight: 600; }
+.brow .amt { margin-left: auto; }
+.section-title { font-size: 1rem; color: var(--muted); margin: 22px 0 10px; }
+.hmain { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.hcat { font-weight: 500; }
+.hnote { color: var(--muted); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hmeta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.hdate { color: var(--muted); font-size: 0.8rem; }
+.empty { color: var(--muted); text-align: center; padding: 16px; }
+
+/* Edit modal */
+.modalbg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+.modalbg[hidden] { display: none; }
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 18px;
+  width: 100%;
+  max-width: 440px;
+  display: grid;
+  gap: 12px;
+}
+.field { display: grid; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+.field input, .field select {
+  padding: 12px;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--surface-2);
+  background: var(--bg);
+  color: var(--text);
+}
+.modal-actions { display: flex; gap: 8px; margin-top: 4px; }
+.modal-actions button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.modal-actions .primary { background: var(--accent); color: #fff; }
+.modal-actions .secondary { background: var(--surface-2); color: var(--text); }
+.modal-actions .danger { background: var(--danger); color: #fff; }
+
 /* Login page */
 .login {
   max-width: 320px;
