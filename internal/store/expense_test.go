@@ -146,6 +146,27 @@ func TestDeleteRemoves(t *testing.T) {
 	}
 }
 
+func TestCreateWithKeyIsIdempotent(t *testing.T) {
+	s := tempStore(t)
+	e1, new1, err := s.CreateWithKey(Expense{AmountCents: 1000, CategoryKey: "groceries", SpentOn: "2026-09-01"}, "k1")
+	if err != nil || !new1 {
+		t.Fatalf("first insert: new=%v err=%v", new1, err)
+	}
+	e2, new2, err := s.CreateWithKey(Expense{AmountCents: 9999, CategoryKey: "other", SpentOn: "2026-09-02"}, "k1")
+	if err != nil {
+		t.Fatalf("second insert err: %v", err)
+	}
+	if new2 {
+		t.Error("second insert with same key should not be new")
+	}
+	if e2.ID != e1.ID {
+		t.Errorf("same key should return same row: %d vs %d", e2.ID, e1.ID)
+	}
+	if list, _ := s.ListByMonth("2026-09"); len(list) != 1 {
+		t.Errorf("expected exactly 1 row, got %d", len(list))
+	}
+}
+
 func TestEditedDateMovesMonth(t *testing.T) {
 	s := tempStore(t)
 	e := mustCreate(t, s, 900, "home", "2026-09-30")

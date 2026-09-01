@@ -152,4 +152,26 @@ func TestCategoriesReturnsTen(t *testing.T) {
 	}
 }
 
+func TestIdempotencyKeyPreventsDoubleInsert(t *testing.T) {
+	mux, st := testAPI(t)
+	post := func() int {
+		var buf bytes.Buffer
+		json.NewEncoder(&buf).Encode(map[string]any{"amount_cents": 1250, "category_key": "groceries", "spent_on": "2026-09-01"})
+		req := httptest.NewRequest("POST", "/api/expenses", &buf)
+		req.Header.Set("Idempotency-Key", "abc-123")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if code := post(); code != http.StatusCreated {
+		t.Fatalf("first POST = %d, want 201", code)
+	}
+	if code := post(); code != http.StatusOK {
+		t.Fatalf("replayed POST = %d, want 200 (idempotent)", code)
+	}
+	if list, _ := st.ListByMonth("2026-09"); len(list) != 1 {
+		t.Errorf("expected 1 expense after replay, got %d", len(list))
+	}
+}
+
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }

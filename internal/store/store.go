@@ -47,14 +47,16 @@ func (s *Store) Close() error {
 
 const schema = `
 CREATE TABLE IF NOT EXISTS expenses (
-	id           INTEGER PRIMARY KEY AUTOINCREMENT,
-	amount_cents INTEGER NOT NULL,
-	category_key TEXT    NOT NULL,
-	spent_on     TEXT    NOT NULL,          -- YYYY-MM-DD in the owner's local zone
-	note         TEXT    NOT NULL DEFAULT '',
-	created_at   TEXT    NOT NULL           -- RFC3339 timestamp
+	id              INTEGER PRIMARY KEY AUTOINCREMENT,
+	amount_cents    INTEGER NOT NULL,
+	category_key    TEXT    NOT NULL,
+	spent_on        TEXT    NOT NULL,          -- YYYY-MM-DD in the owner's local zone
+	note            TEXT    NOT NULL DEFAULT '',
+	created_at      TEXT    NOT NULL,          -- RFC3339 timestamp
+	idempotency_key TEXT                       -- optional client key; guards double-submit on retry
 );
 CREATE INDEX IF NOT EXISTS idx_expenses_spent_on ON expenses (spent_on);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_idem ON expenses (idempotency_key) WHERE idempotency_key IS NOT NULL;
 `
 
 // migrate creates the schema if it does not already exist. It is idempotent.

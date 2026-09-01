@@ -35,20 +35,58 @@ type Summary struct {
 
 // Create inserts e and returns it with ID and CreatedAt populated.
 func (s *Store) Create(e Expense) (Expense, error) {
+	created, _, err := s.CreateWithKey(e, "")
+	return created, err
+}
+
+// CreateWithKey inserts e, optionally guarded by an idempotency key. When key is
+// non-empty and an expense with that key already exists, the existing expense is
+// returned with created=false — so a retried capture (e.g. after an offline
+// error) cannot create a duplicate. An empty key stores NULL and always inserts.
+func (s *Store) CreateWithKey(e Expense, key string) (Expense, bool, error) {
+	if key != "" {
+		existing, err := s.getByKey(key)
+		if err == nil {
+			return existing, false, nil
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return Expense{}, false, err
+		}
+	}
+
 	e.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+	var keyArg any
+	if key != "" {
+		keyArg = key
+	}
 	res, err := s.db.Exec(
-		`INSERT INTO expenses (amount_cents, category_key, spent_on, note, created_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		e.AmountCents, e.CategoryKey, e.SpentOn, e.Note, e.CreatedAt,
+		`INSERT INTO expenses (amount_cents, category_key, spent_on, note, created_at, idempotency_key)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		e.AmountCents, e.CategoryKey, e.SpentOn, e.Note, e.CreatedAt, keyArg,
 	)
 	if err != nil {
-		return Expense{}, err
+		return Expense{}, false, err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		return Expense{}, err
+		return Expense{}, false, err
 	}
 	e.ID = id
+	return e, true, nil
+}
+
+func (s *Store) getByKey(key string) (Expense, error) {
+	var e Expense
+	err := s.db.QueryRow(
+		`SELECT id, amount_cents, category_key, spent_on, note, created_at
+		 FROM expenses WHERE idempotency_key = ?`, key,
+	).Scan(&e.ID, &e.AmountCents, &e.CategoryKey, &e.SpentOn, &e.Note, &e.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Expense{}, ErrNotFound
+	}
+	if err != nil {
+		return Expense{}, err
+	}
 	return e, nil
 }
 

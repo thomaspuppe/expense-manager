@@ -81,12 +81,16 @@ func (a *API) createExpense(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
-	created, err := a.store.Create(e)
+	created, wasNew, err := a.store.CreateWithKey(e, r.Header.Get("Idempotency-Key"))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not save expense")
 		return
 	}
-	writeJSON(w, http.StatusCreated, created)
+	status := http.StatusCreated
+	if !wasNew {
+		status = http.StatusOK // idempotent replay: the key already produced this expense
+	}
+	writeJSON(w, status, created)
 }
 
 func (a *API) listExpenses(w http.ResponseWriter, r *http.Request) {
