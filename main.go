@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	_ "time/tzdata" // embed the zone database so Europe/Berlin resolves in the static binary
+
 	"expensemanager/internal/config"
 	"expensemanager/internal/server"
 	"expensemanager/internal/store"
