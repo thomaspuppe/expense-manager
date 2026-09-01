@@ -65,6 +65,13 @@ func (s *Store) CreateWithKey(e Expense, key string) (Expense, bool, error) {
 		e.AmountCents, e.CategoryKey, e.SpentOn, e.Note, e.CreatedAt, keyArg,
 	)
 	if err != nil {
+		// A concurrent request with the same key may have won the race between our
+		// getByKey check and this insert. Return that row instead of a 500.
+		if key != "" {
+			if existing, gerr := s.getByKey(key); gerr == nil {
+				return existing, false, nil
+			}
+		}
 		return Expense{}, false, err
 	}
 	id, err := res.LastInsertId()

@@ -45,7 +45,7 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-const schema = `
+const baseSchema = `
 CREATE TABLE IF NOT EXISTS expenses (
 	id              INTEGER PRIMARY KEY AUTOINCREMENT,
 	amount_cents    INTEGER NOT NULL,
@@ -56,11 +56,48 @@ CREATE TABLE IF NOT EXISTS expenses (
 	idempotency_key TEXT                       -- optional client key; guards double-submit on retry
 );
 CREATE INDEX IF NOT EXISTS idx_expenses_spent_on ON expenses (spent_on);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_idem ON expenses (idempotency_key) WHERE idempotency_key IS NOT NULL;
 `
 
-// migrate creates the schema if it does not already exist. It is idempotent.
+const idemIndex = `CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_idem
+	ON expenses (idempotency_key) WHERE idempotency_key IS NOT NULL;`
+
+// migrate brings the schema up to date. It is idempotent and additive: a table
+// created by an older version (without idempotency_key) gains the column before
+// the dependent index is created, so upgrades never fail with "no such column".
 func (s *Store) migrate() error {
-	_, err := s.db.Exec(schema)
+	if _, err := s.db.Exec(baseSchema); err != nil {
+		return err
+	}
+	if err := s.ensureColumn("expenses", "idempotency_key", "TEXT"); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(idemIndex)
+	return err
+}
+
+// ensureColumn adds col to table if it is not already present. table and col are
+// internal constants, never user input.
+func (s *Store) ensureColumn(table, col, colType string) error {
+	rows, err := s.db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == col {
+			return rows.Close() // already present
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_, err = s.db.Exec("ALTER TABLE " + table + " ADD COLUMN " + col + " " + colType)
 	return err
 }

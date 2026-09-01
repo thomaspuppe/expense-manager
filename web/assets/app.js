@@ -8,8 +8,14 @@
   var MAX_CENTS = 99999999; // €999,999.99 cap
   var amountCents = 0;
   var inflight = false;
-  var pendingKey = null; // reused across a retry so the server dedupes
-  var lastCommit = null; // { key, btn } to replay on Retry
+  var lastAttempt = null; // { payload, key, btn } — for an exact Retry of a failed send
+
+  function newKey() {
+    return (
+      (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
+      String(Date.now()) + "-" + Math.random().toString(16).slice(2)
+    );
+  }
 
   var amountEl = document.getElementById("amount");
   var errorEl = document.getElementById("error");
@@ -50,8 +56,7 @@
     noteEl.value = "";
     dateEl.value = todayLocal();
     collapseExtra();
-    pendingKey = null;
-    lastCommit = null;
+    lastAttempt = null;
     hideError();
     render();
   }
@@ -77,14 +82,27 @@
     });
   }
 
-  function commit(key, btn) {
+  // commit captures the current amount/note/date and a fresh idempotency key,
+  // then sends. Each category tap is its own capture with its own key, so an
+  // earlier failed attempt can never dedupe a later, different entry.
+  function commit(catKey, btn) {
     if (amountCents <= 0 || inflight) return;
-    if (!pendingKey) {
-      pendingKey =
-        (window.crypto && crypto.randomUUID && crypto.randomUUID()) ||
-        String(Date.now()) + "-" + Math.random().toString(16).slice(2);
-    }
-    lastCommit = { key: key, btn: btn };
+    lastAttempt = {
+      payload: {
+        amount_cents: amountCents,
+        category_key: catKey,
+        note: noteEl.value.trim(),
+        spent_on: dateEl.value || todayLocal(),
+      },
+      key: newKey(),
+      btn: btn,
+    };
+    send();
+  }
+
+  // send transmits lastAttempt. Retry calls it again with the same payload and
+  // key, so a re-send after a lost response cannot double-submit.
+  function send() {
     inflight = true;
     setCatsDisabled(true);
 
@@ -92,18 +110,13 @@
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Idempotency-Key": pendingKey,
+        "Idempotency-Key": lastAttempt.key,
       },
-      body: JSON.stringify({
-        amount_cents: amountCents,
-        category_key: key,
-        note: noteEl.value.trim(),
-        spent_on: dateEl.value || todayLocal(),
-      }),
+      body: JSON.stringify(lastAttempt.payload),
     })
       .then(function (res) {
         if (res.ok) {
-          flashConfirm(btn);
+          flashConfirm(lastAttempt.btn);
           resetAfterCommit();
         } else if (res.status === 401) {
           window.location.href = "/login";
@@ -148,14 +161,19 @@
   });
 
   retryBtn.addEventListener("click", function () {
-    if (lastCommit) commit(lastCommit.key, lastCommit.btn);
+    if (lastAttempt && !inflight) send();
   });
 
-  // Desktop: physical keyboard drives the same accumulator.
+  // Desktop: physical keyboard drives the same accumulator — but never while a
+  // text/date/select field is focused, so typing a note doesn't touch the amount.
   document.addEventListener("keydown", function (e) {
+    var el = document.activeElement;
+    if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) {
+      return;
+    }
     if (e.key >= "0" && e.key <= "9") {
       pressDigit(parseInt(e.key, 10));
-    } else if (e.key === "Backspace" && document.activeElement !== noteEl) {
+    } else if (e.key === "Backspace") {
       e.preventDefault();
       backspace();
     }

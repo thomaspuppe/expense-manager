@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 )
@@ -45,6 +46,39 @@ func TestOpenIsIdempotent(t *testing.T) {
 		t.Fatalf("second Open on existing db: %v", err)
 	}
 	s2.Close()
+}
+
+// TestMigrateAddsMissingColumn simulates a database created by an older version
+// (no idempotency_key column) and verifies Open upgrades it additively.
+func TestMigrateAddsMissingColumn(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "old.db")
+
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	_, err = db.Exec(`CREATE TABLE expenses (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		amount_cents INTEGER NOT NULL,
+		category_key TEXT NOT NULL,
+		spent_on TEXT NOT NULL,
+		note TEXT NOT NULL DEFAULT '',
+		created_at TEXT NOT NULL
+	);`)
+	if err != nil {
+		t.Fatalf("create old table: %v", err)
+	}
+	db.Close()
+
+	s, err := Open(dbPath) // should ALTER in the missing column and add the index
+	if err != nil {
+		t.Fatalf("Open (upgrade): %v", err)
+	}
+	defer s.Close()
+
+	if _, _, err := s.CreateWithKey(Expense{AmountCents: 100, CategoryKey: "other", SpentOn: "2026-09-01"}, "k1"); err != nil {
+		t.Fatalf("insert after upgrade failed (column not added?): %v", err)
+	}
 }
 
 func TestIsValidCategory(t *testing.T) {
