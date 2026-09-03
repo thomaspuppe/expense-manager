@@ -224,3 +224,41 @@ func TestPatchUnknownIDReturns404(t *testing.T) {
 		t.Errorf("status = %d, want 404", rec.Code)
 	}
 }
+
+// A malformed month must be rejected rather than silently falling back to the
+// current one, which would show the caller a different month than it asked for.
+func TestListAndSummaryRejectMalformedMonth(t *testing.T) {
+	mux, _ := testAPI(t)
+	for _, target := range []string{
+		"/api/expenses?month=garbage",
+		"/api/expenses?month=2026-13",
+		"/api/expenses?month=2026-09-01",
+		"/api/summary?month=garbage",
+		"/api/summary?month=2026-1",
+	} {
+		rec := do(t, mux, "GET", target, nil)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("GET %s = %d, want 400; body=%s", target, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestNonNumericIDIsRejected(t *testing.T) {
+	mux, _ := testAPI(t)
+	rec := do(t, mux, "PATCH", "/api/expenses/abc", map[string]any{"amount_cents": 500})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("PATCH bad id = %d, want 400", rec.Code)
+	}
+	rec = do(t, mux, "DELETE", "/api/expenses/abc", nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("DELETE bad id = %d, want 400", rec.Code)
+	}
+}
+
+func TestDeleteUnknownIDReturns404(t *testing.T) {
+	mux, _ := testAPI(t)
+	rec := do(t, mux, "DELETE", "/api/expenses/999", nil)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}
