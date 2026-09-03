@@ -3,7 +3,10 @@
 expenses.example.com {
 	reverse_proxy 127.0.0.1:8080
 
-	# Optional: throttle login guesses. Requires the caddy-ratelimit plugin.
+	# Login guesses are already throttled inside the app (an escalating delay on
+	# each consecutive failure, serialized so they cannot be run in parallel).
+	# This block adds a per-IP cap on top and needs the caddy-ratelimit plugin,
+	# so it stays commented out for a stock Caddy build.
 	# @login path /login
 	# rate_limit @login {
 	#     zone login { key {remote_host} events 10 window 1m }

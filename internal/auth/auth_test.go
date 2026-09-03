@@ -6,12 +6,15 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"expensemanager/internal/config"
 )
 
 func testAuth() *Auth {
-	return New(config.Config{Password: "swordfish", BearerToken: "secret-token", SessionSecret: "signing-key"})
+	a := New(config.Config{Password: "swordfish", BearerToken: "secret-token", SessionSecret: "signing-key"})
+	a.throttle.step, a.throttle.max = 0, 0 // don't make the suite wait out the login backoff
+	return a
 }
 
 func okHandler() http.Handler {
@@ -136,5 +139,45 @@ func TestLogoutClearsSession(t *testing.T) {
 	}
 	if !cleared {
 		t.Error("logout should expire the session cookie")
+	}
+}
+
+// TestLoginThrottleBacksOff covers the brute-force guard on the single account:
+// each consecutive failure waits longer, up to a cap, and a success clears it.
+func TestLoginThrottleBacksOff(t *testing.T) {
+	tr := &loginThrottle{step: time.Millisecond, max: 3 * time.Millisecond, quiet: time.Hour}
+
+	want := []time.Duration{1, 2, 3, 3}
+	for i, w := range want {
+		if got := tr.penalize(); got != w*time.Millisecond {
+			t.Errorf("failure %d delayed %v, want %v", i+1, got, w*time.Millisecond)
+		}
+	}
+
+	tr.clear()
+	if got := tr.penalize(); got != time.Millisecond {
+		t.Errorf("after a successful login the backoff restarted at %v, want %v", got, time.Millisecond)
+	}
+}
+
+// A long quiet gap is the owner mistyping months later, not a run of guesses.
+func TestLoginThrottleForgetsAfterQuietPeriod(t *testing.T) {
+	tr := &loginThrottle{step: time.Millisecond, max: 3 * time.Millisecond, quiet: time.Hour}
+	tr.penalize()
+	tr.penalize()
+	tr.last = time.Now().Add(-2 * time.Hour)
+
+	if got := tr.penalize(); got != time.Millisecond {
+		t.Errorf("delay after quiet period = %v, want %v", got, time.Millisecond)
+	}
+}
+
+func TestLoginSucceedsAfterFailures(t *testing.T) {
+	a := testAuth()
+	postLogin(a, "wrong")
+	postLogin(a, "wrong")
+	rec := postLogin(a, "swordfish")
+	if sessionCookie(t, rec) == nil {
+		t.Error("correct password must still log in after failed attempts (no lockout)")
 	}
 }

@@ -29,6 +29,30 @@ Built to the plan in [`docs/plans/`](docs/plans/).
 
 Generate secrets with `openssl rand -hex 32`.
 
+Failed logins are throttled server-side (each consecutive wrong password waits
+progressively longer, capped at 3s), so the single password cannot be guessed at
+speed. There is no lockout — the right password always works.
+
+## JSON API
+
+Every client — the web app and any future CSV import or MCP/AI client — uses
+this surface. Authenticate with the session cookie or
+`Authorization: Bearer $EXPENSE_BEARER_TOKEN`.
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/api/expenses` | `amount_cents` and `category_key` required; `spent_on` defaults to today. Send an `Idempotency-Key` header to make a retry safe. |
+| `GET` | `/api/expenses?month=YYYY-MM` | defaults to the current month |
+| `PATCH` | `/api/expenses/{id}` | partial: fields you omit keep their stored value |
+| `DELETE` | `/api/expenses/{id}` | |
+| `GET` | `/api/summary?month=YYYY-MM` | total plus per-category breakdown |
+| `GET` | `/api/categories` | the fixed category set |
+
+Amounts are integer euro cents and dates are `YYYY-MM-DD` in Europe/Berlin.
+`PATCH` is a true partial update, so `{"amount_cents": 500}` alone is valid and
+leaves the note, date, and category untouched. A `spent_on` that is present but
+not a valid date is rejected rather than defaulted.
+
 ## Run locally
 
 ```sh
@@ -74,6 +98,10 @@ Caddy, which supplies automatic HTTPS.
    domain) to the Caddyfile and reload Caddy.
 
 Redeploys are: `./build.sh`, `scp` the new binary, `sudo systemctl restart expense`.
+
+Installed PWAs pick a redeploy up on their next online load: the service worker
+serves the app shell network-first and falls back to its cache only when
+offline, so a deploy is never pinned behind a stale cache.
 
 ## Backup
 

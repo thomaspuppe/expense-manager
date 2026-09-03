@@ -21,6 +21,7 @@
   var editCategory = document.getElementById("edit-category");
   var editDate = document.getElementById("edit-date");
   var editNote = document.getElementById("edit-note");
+  var editError = document.getElementById("edit-error");
 
   var month = currentMonth();
 
@@ -116,20 +117,50 @@
     editCategory.value = e.category_key;
     editDate.value = e.spent_on;
     editNote.value = e.note || "";
+    hideEditError();
     editBg.hidden = false;
   }
   function closeEditor() {
     editBg.hidden = true;
     editingId = null;
+    hideEditError();
+  }
+  function showEditError(msg) {
+    editError.textContent = msg;
+    editError.hidden = false;
+  }
+  function hideEditError() {
+    editError.hidden = true;
   }
   function toCents(euroStr) {
     var n = Math.round(parseFloat(euroStr) * 100);
     return isFinite(n) ? n : 0;
   }
 
+  // The editor stays open on any failure. Closing it and re-rendering the
+  // unchanged list would show the old values as though the save had worked.
+  function afterWrite(r, failMsg) {
+    if (unauthorized(r)) return;
+    if (!r.ok) {
+      showEditError(r.status === 404 ? "This expense no longer exists." : failMsg);
+      load();
+      return;
+    }
+    closeEditor();
+    load();
+  }
+
   document.getElementById("edit-save").addEventListener("click", function () {
     var cents = toCents(editAmount.value);
-    if (cents <= 0) { editAmount.focus(); return; }
+    if (cents <= 0) { showEditError("Enter an amount above zero."); editAmount.focus(); return; }
+    // An empty date would reach the API as "" and be defaulted to today,
+    // quietly moving the expense out of the month being reviewed.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(editDate.value)) {
+      showEditError("Pick a date.");
+      editDate.focus();
+      return;
+    }
+    hideEditError();
     fetch("/api/expenses/" + editingId, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -139,20 +170,16 @@
         spent_on: editDate.value,
         note: editNote.value.trim(),
       }),
-    }).then(function (r) {
-      if (unauthorized(r)) return;
-      closeEditor();
-      load();
-    });
+    })
+      .then(function (r) { afterWrite(r, "Could not save. Try again."); })
+      .catch(function () { showEditError("No connection — not saved."); });
   });
 
   document.getElementById("edit-delete").addEventListener("click", function () {
     if (!window.confirm("Delete this expense?")) return;
-    fetch("/api/expenses/" + editingId, { method: "DELETE" }).then(function (r) {
-      if (unauthorized(r)) return;
-      closeEditor();
-      load();
-    });
+    fetch("/api/expenses/" + editingId, { method: "DELETE" })
+      .then(function (r) { afterWrite(r, "Could not delete. Try again."); })
+      .catch(function () { showEditError("No connection — not deleted."); });
   });
 
   document.getElementById("edit-cancel").addEventListener("click", closeEditor);

@@ -8,6 +8,7 @@
   var MAX_CENTS = 99999999; // €999,999.99 cap
   var amountCents = 0;
   var inflight = false;
+  var dateTouched = false; // true once the user picks a date, so we stop tracking "today"
   var lastAttempt = null; // { payload, key, btn } — for an exact Retry of a failed send
 
   function newKey() {
@@ -43,18 +44,30 @@
     var next = amountCents * 10 + d;
     if (next > MAX_CENTS) return;
     amountCents = next;
+    dropPendingRetry();
     render();
   }
 
   function backspace() {
     amountCents = Math.floor(amountCents / 10);
+    dropPendingRetry();
     render();
+  }
+
+  // A failed send leaves the amount on screen next to a Retry button. Once the
+  // user edits anything, that captured payload no longer matches what they see,
+  // so retrying it would silently save the wrong entry — drop it instead.
+  function dropPendingRetry() {
+    if (!lastAttempt || inflight) return;
+    lastAttempt = null;
+    hideError();
   }
 
   function resetAfterCommit() {
     amountCents = 0;
     noteEl.value = "";
     dateEl.value = todayLocal();
+    dateTouched = false;
     collapseExtra();
     lastAttempt = null;
     hideError();
@@ -92,7 +105,10 @@
         amount_cents: amountCents,
         category_key: catKey,
         note: noteEl.value.trim(),
-        spent_on: dateEl.value || todayLocal(),
+        // Recomputed per commit: an installed PWA is usually resumed, not
+        // reloaded, so a date fixed at load time would still say "yesterday"
+        // after midnight and file the expense in the wrong day — or month.
+        spent_on: dateTouched && dateEl.value ? dateEl.value : todayLocal(),
       },
       key: newKey(),
       btn: btn,
@@ -162,6 +178,17 @@
 
   retryBtn.addEventListener("click", function () {
     if (lastAttempt && !inflight) send();
+  });
+
+  noteEl.addEventListener("input", dropPendingRetry);
+  dateEl.addEventListener("input", function () {
+    dateTouched = true;
+    dropPendingRetry();
+  });
+
+  // Resuming a frozen PWA the next day must move the untouched date field on.
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && !dateTouched) dateEl.value = todayLocal();
   });
 
   // Desktop: physical keyboard drives the same accumulator — but never while a

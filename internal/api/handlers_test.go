@@ -175,3 +175,52 @@ func TestIdempotencyKeyPreventsDoubleInsert(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// TestPatchPreservesUnmentionedFields covers the partial-update contract the
+// non-browser clients (CSV import, MCP/AI) rely on: a field left out of the
+// body keeps its stored value instead of being blanked.
+func TestPatchPreservesUnmentionedFields(t *testing.T) {
+	mux, st := testAPI(t)
+	e, _ := st.Create(store.Expense{
+		AmountCents: 1000, CategoryKey: "groceries", SpentOn: "2026-03-05", Note: "market",
+	})
+
+	rec := do(t, mux, "PATCH", "/api/expenses/"+itoa(e.ID), map[string]any{"amount_cents": 500})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var got store.Expense
+	json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.AmountCents != 500 {
+		t.Errorf("amount_cents = %d, want 500", got.AmountCents)
+	}
+	if got.CategoryKey != "groceries" || got.Note != "market" || got.SpentOn != "2026-03-05" {
+		t.Errorf("patch blanked untouched fields: %+v", got)
+	}
+}
+
+// An empty date must not fall through to "today" on an update — that would move
+// an old expense into the current month.
+func TestPatchRejectsEmptyDate(t *testing.T) {
+	mux, st := testAPI(t)
+	e, _ := st.Create(store.Expense{AmountCents: 1000, CategoryKey: "groceries", SpentOn: "2026-03-05"})
+
+	rec := do(t, mux, "PATCH", "/api/expenses/"+itoa(e.ID), map[string]any{
+		"amount_cents": 1000, "category_key": "groceries", "spent_on": "", "note": "",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	stored, _ := st.Get(e.ID)
+	if stored.SpentOn != "2026-03-05" {
+		t.Errorf("spent_on = %q, want it untouched at 2026-03-05", stored.SpentOn)
+	}
+}
+
+func TestPatchUnknownIDReturns404(t *testing.T) {
+	mux, _ := testAPI(t)
+	rec := do(t, mux, "PATCH", "/api/expenses/999", map[string]any{"amount_cents": 500})
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}
