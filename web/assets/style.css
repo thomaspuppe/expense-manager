@@ -143,6 +143,25 @@ body {
 .cat.confirmed { background: rgba(53, 192, 122, 0.18); }
 .cat.confirmed .cat-check { opacity: 1; }
 
+.recent { margin-top: 26px; }
+.recent-title { font-size: 0.95rem; color: var(--muted); font-weight: 500; margin: 0 0 10px; }
+.recent-list { display: grid; gap: 6px; }
+.rrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+}
+.rmain { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.rcat { font-weight: 500; }
+.rnote { color: var(--muted); font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rmeta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.ramt { font-variant-numeric: tabular-nums; font-weight: 600; }
+.rdate { color: var(--muted); font-size: 0.78rem; }
+
 .banner {
   display: flex;
   align-items: center;

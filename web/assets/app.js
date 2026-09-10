@@ -27,6 +27,24 @@
   var extra = document.getElementById("extra");
   var extraToggle = document.getElementById("extra-toggle");
   var cats = Array.prototype.slice.call(document.querySelectorAll(".cat"));
+  var recentEl = document.getElementById("recent");
+  var recentListEl = document.getElementById("recent-list");
+
+  // Category icon/label for the recent list, read straight off the buttons the
+  // server already rendered — no second source of truth to keep in sync.
+  var catInfo = {};
+  cats.forEach(function (b) {
+    catInfo[b.getAttribute("data-key")] = {
+      icon: b.querySelector(".cat-icon").textContent,
+      label: b.querySelector(".cat-label").textContent,
+    };
+  });
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
 
   function todayLocal() {
     var d = new Date();
@@ -38,6 +56,68 @@
   function render() {
     var euros = (amountCents / 100).toFixed(2);
     amountEl.innerHTML = "€&nbsp;" + euros;
+  }
+
+  function monthOf(dateStr) {
+    return dateStr.slice(0, 7);
+  }
+
+  // "today" / "yesterday" for the two common cases, the plain date otherwise —
+  // the recent list is a quick glance, not a ledger.
+  function relDate(spentOn) {
+    if (spentOn === todayLocal()) return "today";
+    var d = new Date();
+    d.setDate(d.getDate() - 1);
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    if (spentOn === d.getFullYear() + "-" + m + "-" + day) return "yesterday";
+    return spentOn;
+  }
+
+  function renderRecent(list) {
+    var rows = list.slice(0, 5);
+    if (!rows.length) {
+      recentEl.hidden = true;
+      return;
+    }
+    recentListEl.innerHTML = rows
+      .map(function (e) {
+        var c = catInfo[e.category_key] || { icon: "", label: e.category_key };
+        var note = e.note ? '<span class="rnote">' + esc(e.note) + "</span>" : "";
+        return (
+          '<div class="rrow">' +
+          '<span class="cat-icon" aria-hidden="true">' + esc(c.icon) + "</span>" +
+          '<span class="rmain"><span class="rcat">' + esc(c.label) + "</span>" + note + "</span>" +
+          '<span class="rmeta"><span class="ramt">€&nbsp;' + (e.amount_cents / 100).toFixed(2) + "</span>" +
+          '<span class="rdate">' + esc(relDate(e.spent_on)) + "</span></span>" +
+          "</div>"
+        );
+      })
+      .join("");
+    recentEl.hidden = false;
+  }
+
+  // Load the most recent entries. The current month usually has them; early in a
+  // month it may not, so fall back to the previous month to fill the list.
+  function loadRecent() {
+    var thisMonth = monthOf(todayLocal());
+    fetch("/api/expenses?month=" + thisMonth)
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        if (list.length >= 5) {
+          renderRecent(list);
+          return;
+        }
+        var d = new Date();
+        d.setDate(1);
+        d.setMonth(d.getMonth() - 1);
+        var prev = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+        fetch("/api/expenses?month=" + prev)
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (older) { renderRecent(list.concat(older)); })
+          .catch(function () { renderRecent(list); });
+      })
+      .catch(function () {});
   }
 
   function pressDigit(d) {
@@ -134,6 +214,7 @@
         if (res.ok) {
           flashConfirm(lastAttempt.btn);
           resetAfterCommit();
+          loadRecent();
         } else if (res.status === 401) {
           window.location.href = "/login";
         } else {
@@ -208,4 +289,5 @@
 
   dateEl.value = todayLocal();
   render();
+  loadRecent();
 })();
