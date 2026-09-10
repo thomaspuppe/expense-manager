@@ -139,7 +139,7 @@ func TestPatchThenDelete(t *testing.T) {
 	}
 }
 
-func TestCategoriesReturnsTen(t *testing.T) {
+func TestCategoriesReturnsFullSet(t *testing.T) {
 	mux, _ := testAPI(t)
 	rec := do(t, mux, "GET", "/api/categories", nil)
 	if rec.Code != http.StatusOK {
@@ -147,8 +147,8 @@ func TestCategoriesReturnsTen(t *testing.T) {
 	}
 	var cats []store.Category
 	json.Unmarshal(rec.Body.Bytes(), &cats)
-	if len(cats) != 10 {
-		t.Errorf("expected 10 categories, got %d", len(cats))
+	if len(cats) != len(store.Categories) {
+		t.Errorf("expected %d categories, got %d", len(store.Categories), len(cats))
 	}
 }
 

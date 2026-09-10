@@ -5,7 +5,7 @@ numpad-first PWA and a JSON API over a local SQLite database. Money out only —
 open, type an amount, tap a category, done.
 
 - **Fast capture:** the app opens on a live numpad; type an amount, tap one of
-  ~10 fixed categories, and it is saved.
+  ~8 fixed categories, and it is saved.
 - **Where did it go:** monthly total and per-category breakdown, with prev/next
   month navigation.
 - **One source of truth:** SQLite on the server; phone (installable PWA),

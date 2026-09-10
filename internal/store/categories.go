@@ -15,11 +15,9 @@ var Categories = []Category{
 	{Key: "eating_out", Label: "Eating out", Icon: "🍴"},
 	{Key: "transport", Label: "Transport", Icon: "🚇"},
 	{Key: "home", Label: "Home", Icon: "🏠"},
-	{Key: "health", Label: "Health", Icon: "💊"},
 	{Key: "leisure", Label: "Leisure", Icon: "🎉"},
 	{Key: "shopping", Label: "Shopping", Icon: "🛍️"},
 	{Key: "bills", Label: "Bills", Icon: "🧾"},
-	{Key: "travel", Label: "Travel", Icon: "✈️"},
 	{Key: "other", Label: "Other", Icon: "📦"},
 }
 

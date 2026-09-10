@@ -27,7 +27,7 @@ Product Contract preservation: restructured, no scope change. R1–R17 carried f
 
 ### Summary
 
-A single-user expense tracker delivered as one small hosted web app. It opens straight into a live numpad — type an amount, tap one of ~10 fixed categories, and it is saved. Beyond capture, it answers "where did my money go this month?" with a monthly total and a by-category breakdown. Data lives server-side in SQLite as the single source of truth, reached by every client through one JSON API.
+A single-user expense tracker delivered as one small hosted web app. It opens straight into a live numpad — type an amount, tap one of ~8 fixed categories, and it is saved. Beyond capture, it answers "where did my money go this month?" with a monthly total and a by-category breakdown. Data lives server-side in SQLite as the single source of truth, reached by every client through one JSON API.
 
 ### Problem Frame
 
@@ -38,7 +38,7 @@ Existing expense apps either bloat into full personal-finance suites (accounts, 
 - KD1. Track money out only. No accounts, balances, income, budgets, or transfers, so there is nothing to reconcile and capture stays one gesture. (session-settled: user-directed — chosen over expenses-plus-income and over the full accounts/budgets set: keeps the steak-knife scope.) Governs R1, R2.
 - KD2. One hosted web app with SQLite as the single source of truth, API-first — the web UI itself consumes the same JSON API any future client would. (session-settled: user-directed — chosen over a local-first native build.) Governs R14, R15.
 - KD3. The numpad is the home screen; review is one tap away. Optimizes the ~95% action (logging) over showing context first. (session-settled: user-directed — chosen over open-to-history-with-a-plus-button.) Governs R1, R3, R11.
-- KD4. Ship ~10 fixed default categories with no per-user customization in v1; revisit after real use. (session-settled: user-directed — chosen over freeform on-the-fly categories and over editable-in-settings.) Governs R4.
+- KD4. Ship a small set of fixed default categories with no per-user customization in v1; revisit after real use. (session-settled: user-directed — chosen over freeform on-the-fly categories and over editable-in-settings.) Governs R4. Shipped set is 8: Groceries, Eating out, Transport, Home, Leisure, Shopping, Bills, Other — Health and Travel were dropped before release as unused.
 - KD5. Online-only for v1 — logging requires a connection. (session-settled: user-directed — chosen over an offline queue and over a hold-and-retry middle ground.) Governs R17, AE3.
 - KD6. Single currency, EUR, with no setting. (session-settled: user-approved.) Governs R5.
 
@@ -49,7 +49,7 @@ Existing expense apps either bloat into full personal-finance suites (accounts, 
 - R1. Opening the app presents a live number entry with the amount field focused and ready for input, with no intervening screen or tap.
 - R2. An expense consists of an amount, one category, a date, and an optional short note.
 - R3. Tapping a category commits the expense using the amount already entered; the date defaults to the current date.
-- R4. The category picker shows ~10 fixed default categories. Creating, renaming, or hiding categories is not available in v1.
+- R4. The category picker shows a fixed set of ~8 default categories. Creating, renaming, or hiding categories is not available in v1.
 - R5. Amounts are entered and stored in EUR. There is no currency selection.
 - R6. A short free-text note can optionally be attached to an expense at capture time.
 - R7. The date defaults to today and can be set to a past date.
