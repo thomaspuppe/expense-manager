@@ -77,7 +77,46 @@ go vet ./...
 ## Deploy (IONOS VPS + Caddy)
 
 The whole app is one binary plus a SQLite file — copy them up and run behind
-Caddy, which supplies automatic HTTPS.
+Caddy, which supplies automatic HTTPS. Full walkthrough and how the password
+access works: [`docs/deployment-and-usage.md`](docs/deployment-and-usage.md).
+
+### Quick-start checklist
+
+Prerequisites: a DNS `A` record for your domain pointing at the VPS, and Caddy
+installed and running there.
+
+```sh
+# local: build the static Linux binary
+./build.sh
+
+# server: provision once
+sudo useradd --system --home /opt/expensemanager --shell /usr/sbin/nologin expense
+sudo mkdir -p /opt/expensemanager && sudo chown expense:expense /opt/expensemanager
+
+# local: copy binary, env template, and host config (service unit + Caddy snippet) up
+scp dist/expensemanager vps:/opt/expensemanager/
+scp deploy/expensemanager.env.example vps:/opt/expensemanager/expensemanager.env
+scp deploy/expense.service deploy/Caddyfile.example vps:~/
+
+# server: fill in real secrets, then lock the file down
+#   EXPENSE_PASSWORD  = your login password
+#   EXPENSE_BEARER_TOKEN, SESSION_SECRET = openssl rand -hex 32   (keep SESSION_SECRET stable)
+sudo -u expense nano /opt/expensemanager/expensemanager.env
+sudo chmod 600 /opt/expensemanager/expensemanager.env
+
+# server: install and start the service
+sudo cp ~/expense.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now expense
+systemctl status expense
+
+# server: add the ~/Caddyfile.example block (your domain) to the Caddyfile
+sudo systemctl reload caddy
+```
+
+Then open `https://your-domain/`, enter `EXPENSE_PASSWORD`, and "Add to Home
+Screen" to install the PWA.
+
+### Detailed steps
 
 1. **Provision once** on the VPS:
    ```sh
@@ -88,13 +127,14 @@ Caddy, which supplies automatic HTTPS.
    ```sh
    scp dist/expensemanager vps:/opt/expensemanager/
    scp deploy/expensemanager.env.example vps:/opt/expensemanager/expensemanager.env  # then edit real secrets
+   scp deploy/expense.service deploy/Caddyfile.example vps:~/
    ```
 3. **Install the service:**
    ```sh
-   sudo cp deploy/expense.service /etc/systemd/system/
+   sudo cp ~/expense.service /etc/systemd/system/
    sudo systemctl daemon-reload && sudo systemctl enable --now expense
    ```
-4. **Proxy with Caddy:** add the block from `deploy/Caddyfile.example` (with your
+4. **Proxy with Caddy:** add the block from `~/Caddyfile.example` (with your
    domain) to the Caddyfile and reload Caddy.
 
 Redeploys are: `./build.sh`, `scp` the new binary, `sudo systemctl restart expense`.
