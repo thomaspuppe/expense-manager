@@ -10,6 +10,7 @@
 
   var byId = {}; // id -> expense, from the current history render
   var editingId = null;
+  var editingOriginalCategory = null; // category_key as loaded, to detect a real change below
 
   var monthLabelEl = document.getElementById("month-label");
   var totalEl = document.getElementById("total");
@@ -22,6 +23,7 @@
   var editDate = document.getElementById("edit-date");
   var editNote = document.getElementById("edit-note");
   var editError = document.getElementById("edit-error");
+  var baseCategoryOptions = editCategory.innerHTML; // the fixed set, as the server rendered it
 
   var month = currentMonth();
 
@@ -109,11 +111,25 @@
 
   // --- edit / delete (U7) ---
 
+  // If a category was later removed from the fixed set (internal/store/categories.go),
+  // an expense logged under it has no matching <option>, and assigning .value to
+  // an absent option is silently ignored by the browser — the select would sit on
+  // whatever its first real option is while claiming, wrongly, to reflect the
+  // stored category. Hitting Save unnoticed would then overwrite the true
+  // category with that first option's. Show the orphaned key honestly instead.
+  function setCategoryOptions(key) {
+    editCategory.innerHTML = catMap[key]
+      ? baseCategoryOptions
+      : '<option value="' + esc(key) + '">⚠️ ' + esc(key) + " (removed category)</option>" + baseCategoryOptions;
+  }
+
   function openEditor(id) {
     var e = byId[id];
     if (!e) return;
     editingId = id;
+    editingOriginalCategory = e.category_key;
     editAmount.value = (e.amount_cents / 100).toFixed(2);
+    setCategoryOptions(e.category_key);
     editCategory.value = e.category_key;
     editDate.value = e.spent_on;
     editNote.value = e.note || "";
@@ -161,15 +177,23 @@
       return;
     }
     hideEditError();
+    var body = {
+      amount_cents: cents,
+      spent_on: editDate.value,
+      note: editNote.value.trim(),
+    };
+    // Send category_key only on a real change. This matters for an orphaned
+    // category (see setCategoryOptions): its synthetic option isn't one the API
+    // accepts, so re-sending it unchanged would fail validation. Omitting it
+    // leans on PATCH's partial-update semantics to leave the stored category
+    // exactly as it was.
+    if (editCategory.value !== editingOriginalCategory) {
+      body.category_key = editCategory.value;
+    }
     fetch("/api/expenses/" + editingId, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount_cents: cents,
-        category_key: editCategory.value,
-        spent_on: editDate.value,
-        note: editNote.value.trim(),
-      }),
+      body: JSON.stringify(body),
     })
       .then(function (r) { afterWrite(r, "Could not save. Try again."); })
       .catch(function () { showEditError("No connection — not saved."); });

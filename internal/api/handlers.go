@@ -68,7 +68,13 @@ func (in *expenseInput) applyTo(base store.Expense) (store.Expense, string) {
 	if e.AmountCents <= 0 {
 		return store.Expense{}, "amount_cents must be a positive integer (euro cents)"
 	}
-	if !store.IsValidCategory(e.CategoryKey) {
+	// Validate the category only when this request actually sets it: on create
+	// base is the zero Expense, so there is always a category to check; on
+	// update, a category_key the client didn't send should keep whatever was
+	// already stored — including one later removed from the fixed set
+	// (internal/store/categories.go) — rather than block every future edit to
+	// that expense's amount/date/note just because its old category is gone.
+	if (in.CategoryKey != nil || base.CategoryKey == "") && !store.IsValidCategory(e.CategoryKey) {
 		return store.Expense{}, "unknown category_key"
 	}
 	return e, ""

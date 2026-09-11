@@ -199,6 +199,42 @@ func TestPatchPreservesUnmentionedFields(t *testing.T) {
 	}
 }
 
+// A category dropped from the fixed set (internal/store/categories.go) after an
+// expense was logged under it must not lock that expense out of every future
+// edit: a PATCH that doesn't mention category_key should keep the orphaned
+// value rather than fail validation on it.
+func TestPatchWithOrphanedCategoryKeepsIt(t *testing.T) {
+	mux, st := testAPI(t)
+	e, _ := st.Create(store.Expense{
+		AmountCents: 1000, CategoryKey: "groceries", SpentOn: "2026-03-05", Note: "market",
+	})
+	// Simulate the category having since been removed from the fixed set —
+	// no API path can produce this directly, since create/update both validate
+	// category_key against the current set.
+	if err := st.Update(store.Expense{
+		ID: e.ID, AmountCents: e.AmountCents, CategoryKey: "discontinued", SpentOn: e.SpentOn, Note: e.Note,
+	}); err != nil {
+		t.Fatalf("seed orphaned category: %v", err)
+	}
+
+	rec := do(t, mux, "PATCH", "/api/expenses/"+itoa(e.ID), map[string]any{"amount_cents": 500})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var got store.Expense
+	json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.CategoryKey != "discontinued" {
+		t.Errorf("category_key = %q, want the orphaned value preserved", got.CategoryKey)
+	}
+
+	// Explicitly re-sending the orphaned key is still rejected — only an
+	// omitted category_key is grandfathered in.
+	rec = do(t, mux, "PATCH", "/api/expenses/"+itoa(e.ID), map[string]any{"category_key": "discontinued"})
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 for an explicit unknown category_key", rec.Code)
+	}
+}
+
 // An empty date must not fall through to "today" on an update — that would move
 // an old expense into the current month.
 func TestPatchRejectsEmptyDate(t *testing.T) {
