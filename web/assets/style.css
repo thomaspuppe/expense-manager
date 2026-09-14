@@ -36,6 +36,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Fast repeated taps (e.g. "0" twice for 1000) otherwise get read as a
+   double-tap and trigger the browser's zoom gesture. */
+button, a {
+  touch-action: manipulation;
+}
+
 .topbar {
   display: flex;
   align-items: center;
