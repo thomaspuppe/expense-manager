@@ -115,10 +115,18 @@ session cookie `Secure`.
 
 ### Redeploys
 
+The running service keeps the binary open as its executing text segment, so
+`scp`-ing straight onto `/opt/expensemanager/expensemanager` fails with
+`ETXTBSY` ("Text file busy") while the process is live. Copy to a temp name
+and `mv` (rename) it into place instead — `rename()` swaps the directory
+entry without needing to open the busy file for write, so it works with the
+service running:
+
 ```sh
 ./build.sh
-scp dist/expensemanager vps:/opt/expensemanager/
-ssh vps 'sudo systemctl restart expense'
+scp dist/expensemanager vps:/opt/expensemanager/expensemanager.new
+ssh vps 'sudo mv /opt/expensemanager/expensemanager.new /opt/expensemanager/expensemanager \
+  && sudo systemctl restart expense'
 ```
 
 Installed PWAs pick up the new version on their next online load: the service
