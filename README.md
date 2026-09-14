@@ -137,7 +137,15 @@ Screen" to install the PWA.
 4. **Proxy with Caddy:** add the block from `~/Caddyfile.example` (with your
    domain) to the Caddyfile and reload Caddy.
 
-Redeploys are: `./build.sh`, `scp` the new binary, `sudo systemctl restart expense`.
+Redeploys — `scp` straight onto the running binary fails (`ETXTBSY`, the
+service has it open), so copy to a temp name and `mv` it into place:
+
+```sh
+./build.sh
+scp dist/expensemanager vps:/opt/expensemanager/expensemanager.new
+ssh vps 'sudo mv /opt/expensemanager/expensemanager.new /opt/expensemanager/expensemanager \
+  && sudo systemctl restart expense'
+```
 
 Installed PWAs pick a redeploy up on their next online load: the service worker
 serves the app shell network-first and falls back to its cache only when
