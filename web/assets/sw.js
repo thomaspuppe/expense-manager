@@ -6,7 +6,7 @@
 // new binary at the same URLs, so a cache-first shell would pin an installed
 // PWA to the HTML/JS it first saw and no fix would ever reach the phone. The
 // cache is the offline fallback, not the source of truth.
-const CACHE = "em-shell-v3";
+const CACHE = "em-shell-v4";
 const SHELL = [
   "/",
   "/review",
@@ -14,6 +14,8 @@ const SHELL = [
   "/assets/app.js",
   "/assets/review.js",
   "/assets/icon.svg",
+  "/assets/apple-touch-icon.png",
+  "/assets/favicon-32.png",
 ];
 
 // Only a 200 served straight from its own URL belongs in the shell cache. A
