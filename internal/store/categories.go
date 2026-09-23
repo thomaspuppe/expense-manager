@@ -13,11 +13,13 @@ type Category struct {
 var Categories = []Category{
 	{Key: "groceries", Label: "Groceries", Icon: "🛒"},
 	{Key: "eating_out", Label: "Eating out", Icon: "🍴"},
+	{Key: "lunch", Label: "Lunch", Icon: "🥪"},
 	{Key: "transport", Label: "Transport", Icon: "🚇"},
 	{Key: "home", Label: "Home", Icon: "🏠"},
 	{Key: "leisure", Label: "Leisure", Icon: "🎉"},
 	{Key: "shopping", Label: "Shopping", Icon: "🛍️"},
 	{Key: "bills", Label: "Bills", Icon: "🧾"},
+	{Key: "bloedsinn", Label: "Blödsinn", Icon: "🤡"},
 	{Key: "other", Label: "Other", Icon: "📦"},
 }
 
