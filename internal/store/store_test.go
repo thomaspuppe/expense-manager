@@ -88,7 +88,7 @@ func TestIsValidCategory(t *testing.T) {
 	if IsValidCategory("not_a_category") {
 		t.Error("unknown key should be invalid")
 	}
-	if len(Categories) != 8 {
-		t.Errorf("expected 8 default categories, got %d", len(Categories))
+	if len(Categories) != 10 {
+		t.Errorf("expected 10 default categories, got %d", len(Categories))
 	}
 }
